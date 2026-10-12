@@ -31,8 +31,8 @@
   <h1>Collect your order</h1>
   <p class="hint">Sign in with your university account to open your compartment.</p>
   <div>
-    <label for="uid">Student ID</label>
-    <input id="uid" autocomplete="username" inputmode="text">
+    <label for="uid">University ID</label>
+    <input id="uid" placeholder="Student, lecturer or employee ID" autocomplete="username" inputmode="text">
     <label for="pw">Password</label>
     <input id="pw" type="password" autocomplete="current-password">
     <button id="go">Open my compartment</button>
@@ -59,8 +59,17 @@ async function call(url, body, token) {
 $("go").onclick = async () => {
   $("go").disabled = true; say("Checking…");
   try {
-    const { access_token } = await call("/api/auth/login",
+    const { access_token, role } = await call("/api/auth/login",
       { user_id: $("uid").value.trim(), password: $("pw").value, qr_token: qr });
+
+    if (role !== "recipient") {
+      say(role === "staff"
+        ? "Signed in as canteen staff. Loading by QR is not available yet, please use the dispatch page."
+        : "Admins do not collect orders. Please use the dispatch page.", "ok");
+      $("go").disabled = false;
+      return;
+    }
+    
     const res = await call("/api/unlock", null, access_token);
     say(res.message + ". Take your order and close the door.", "ok");
   } catch (e) {

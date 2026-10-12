@@ -8,7 +8,7 @@ DB_PATH = os.getenv("DB_PATH", "navbot.db")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
-    id              TEXT PRIMARY KEY,           -- student/staff ID
+    id              TEXT PRIMARY KEY,           -- student / lecturer / employee ID
     name            TEXT NOT NULL,
     password_hash   TEXT NOT NULL,
     role            TEXT NOT NULL CHECK (role IN ('recipient','staff','admin')),

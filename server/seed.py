@@ -7,7 +7,9 @@ USERS = [
     ("staff01", "Canteen Staff", "staff123", "staff"),
     ("10423005", "Le Nguyen Viet Anh", "pass001", "recipient"),
     ("10423114", "Do Minh Triet", "pass002", "recipient"),
-    ("10423076", "Nguyen Nhat Minh", "pass003", "recipient")
+    ("10423076", "Nguyen Nhat Minh", "pass003", "recipient"),
+    ("LEC001", "Demo Lecturer", "lecturer123", "recipient"),
+    ("EMP001", "Demo University Employee", "employee123", "recipient"),
 ]
 
 
