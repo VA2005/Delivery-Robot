@@ -121,3 +121,43 @@ def test_third_order_gets_no_compartment(c):
         assert c.post("/api/orders/create", json={"recipient_id": rid}, headers=admin).is_success
     r = c.post("/api/orders/create", json={"recipient_id": "10423076"}, headers=admin)
     assert r.status_code == 409
+
+def test_same_secret_handles_non_ascii():
+    assert main.same_secret("dev-robot-key", "dev-robot-key") is True
+    assert main.same_secret("é", "dev-robot-key") is False
+
+
+def test_third_order_gets_no_compartment(c):
+    admin = bearer(login(c, "admin01", "admin123"))
+    for rid in ("10423005", "10423114"):
+        assert c.post("/api/orders/create", json={"recipient_id": rid}, headers=admin).is_success
+    r = c.post("/api/orders/create", json={"recipient_id": "10423076"}, headers=admin)
+    assert r.status_code == 409
+
+
+def test_production_refuses_default_secrets(monkeypatch):
+    monkeypatch.setattr(sec, "ENV", "production")
+    with pytest.raises(RuntimeError):
+        sec.check_config()
+
+
+def test_production_accepts_real_secrets(monkeypatch):
+    monkeypatch.setattr(sec, "ENV", "production")
+    monkeypatch.setattr(sec, "SECRET", "x" * 40)
+    monkeypatch.setattr(sec, "ROBOT_KEY", "y" * 20)
+    sec.check_config()          # must not raise
+
+
+def test_dev_mode_only_warns(monkeypatch):
+    monkeypatch.setattr(sec, "ENV", "dev")
+    sec.check_config()          # defaults are fine in development
+
+
+def test_production_seed_uses_env_or_random_passwords(c, monkeypatch):
+    monkeypatch.setattr(sec, "ENV", "production")
+    monkeypatch.setenv("SEED_PW_ADMIN01", "Correct-Horse-9")
+    generated = seed()
+    assert "admin01" not in generated and "staff01" in generated
+    assert login(c, "admin01", "Correct-Horse-9").status_code == 200
+    assert login(c, "admin01", "admin123").status_code == 401
+    assert login(c, "staff01", "staff123").status_code == 401

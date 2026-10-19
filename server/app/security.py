@@ -11,13 +11,29 @@ import uuid
 import bcrypt
 import jwt
 
-SECRET = os.getenv("JWT_SECRET", "dev-only-secret-change-me-before-deploying-0123456789")
-ROBOT_KEY = os.getenv("ROBOT_KEY", "dev-robot-key")
+ENV = os.getenv("NAVBOT_ENV", "dev")        # "dev" (default) or "production"
+_DEV_SECRET = "dev-only-secret-change-me-before-deploying-0123456789"
+_DEV_ROBOT_KEY = "dev-robot-key"
+SECRET = os.getenv("JWT_SECRET", _DEV_SECRET)
+ROBOT_KEY = os.getenv("ROBOT_KEY", _DEV_ROBOT_KEY)
 DELIVERY_POINT = os.getenv("DELIVERY_POINT", "DP1")
 ALGO = "HS256"
 QR_TTL = 60            # seconds (spec: 30-60 s)
 RECIPIENT_SESSION_TTL = 120
 STAFF_SESSION_TTL = 1800
+
+def check_config():
+    """Run at startup. Production refuses development defaults and weak secrets."""
+    problems = []
+    if SECRET == _DEV_SECRET or len(SECRET) < 32:
+        problems.append("JWT_SECRET must be a random value of at least 32 characters")
+    if ROBOT_KEY == _DEV_ROBOT_KEY or len(ROBOT_KEY) < 16:
+        problems.append("ROBOT_KEY must be a random value of at least 16 characters")
+    if not problems:
+        return
+    if ENV == "production":
+        raise RuntimeError("Unsafe configuration: " + "; ".join(problems))
+    print("WARNING (development mode): " + "; ".join(problems))
 
 
 def hash_password(password: str) -> str:
