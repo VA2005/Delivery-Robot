@@ -28,6 +28,7 @@ REQUIRE_ROBOT = os.getenv("REQUIRE_ROBOT", "0") == "1"   # 503 if no robot is co
 
 @asynccontextmanager
 async def lifespan(app):
+    sec.check_config()  
     init_db()
     yield
 
