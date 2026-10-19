@@ -16,6 +16,10 @@ from pydantic import BaseModel
 from . import security as sec
 from .db import audit, get_db, init_db
 
+def same_secret(a: str, b: str) -> bool:
+    """Constant-time comparison that also works with non-ASCII text."""
+    return hmac.compare_digest(a.encode(), b.encode())
+
 MAX_FAILS = 5
 LOCK_SECONDS = 300
 LOGIN_LIMIT, LOGIN_WINDOW = 20, 60          # requests per IP per window
@@ -131,7 +135,7 @@ def login(body: LoginIn, request: Request):
 # ---------- QR token (robot only) ----------
 @app.get("/api/qr/token")
 def qr_token(x_robot_key: str = Header(default="")):
-    if not hmac.compare_digest(x_robot_key, sec.ROBOT_KEY):
+    if not same_secret(x_robot_key, sec.ROBOT_KEY):
         raise HTTPException(403, "Robot key required")
     return {"token": sec.create_qr_token(), "ttl": sec.QR_TTL}
 
@@ -151,10 +155,14 @@ async def create_order(body: OrderIn, user=Depends(require_role("admin"))):
         comp = db.execute("SELECT id FROM compartments WHERE state='EMPTY' ORDER BY id LIMIT 1").fetchone()
         if not comp:
             fail(db, 409, "No free compartment", user["sub"], "ORDER_CREATE")
+        # reserve first: the WHERE clause makes sure nobody took this box in the meantime
+        taken = db.execute("UPDATE compartments SET state='RESERVED' WHERE id=? AND state='EMPTY'",
+                           (comp["id"],)).rowcount
+        if taken != 1:
+            fail(db, 409, "Compartment was just taken, please try again", user["sub"], "ORDER_CREATE")
         cur = db.execute(
             "INSERT INTO orders(recipient_id,compartment,details,created_at) VALUES (?,?,?,?)",
             (body.recipient_id, comp["id"], body.details, time.time()))
-        db.execute("UPDATE compartments SET state='RESERVED' WHERE id=?", (comp["id"],))
         audit(db, user["sub"], "ORDER_CREATE", True, f"order {cur.lastrowid} -> box {comp['id']}")
         result = {"order_id": cur.lastrowid, "compartment": comp["id"], "status": "CREATED"}
     await hub.broadcast({"event": "ORDER_CREATED", **result})   # tells the mission manager
@@ -231,7 +239,7 @@ async def unlock(user=Depends(require_role("recipient"))):
 # ---------- WebSocket for the ROS 2 bridge ----------
 @app.websocket("/ws/robot")
 async def ws_robot(ws: WebSocket, key: str = ""):
-    if not hmac.compare_digest(key, sec.ROBOT_KEY):
+    if not same_secret(key, sec.ROBOT_KEY):
         await ws.close(code=1008)
         return
     await ws.accept()

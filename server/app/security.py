@@ -52,3 +52,5 @@ def create_session_token(user_id: str, role: str, qr_jti: str | None = None) -> 
     if qr_jti:
         payload["qr"] = qr_jti
     return _encode(payload, ttl, "session")
+
+

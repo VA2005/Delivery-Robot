@@ -109,3 +109,15 @@ def test_cannot_complete_before_unlock(c):
     oid = loaded_order(c)
     staff = bearer(login(c, "staff01", "staff123"))
     assert c.post(f"/api/orders/{oid}/complete", headers=staff).status_code == 404
+
+def test_same_secret_handles_non_ascii():
+    assert main.same_secret("dev-robot-key", "dev-robot-key") is True
+    assert main.same_secret("é", "dev-robot-key") is False
+
+
+def test_third_order_gets_no_compartment(c):
+    admin = bearer(login(c, "admin01", "admin123"))
+    for rid in ("10423005", "10423114"):
+        assert c.post("/api/orders/create", json={"recipient_id": rid}, headers=admin).is_success
+    r = c.post("/api/orders/create", json={"recipient_id": "10423076"}, headers=admin)
+    assert r.status_code == 409
